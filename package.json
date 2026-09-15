@@ -54,6 +54,7 @@
     "typescript": "~5.4.0"
   },
   "dependencies": {
+    "@azure/identity": "4.13.3",
     "@azure/service-bus": "^7.9.4",
     "node-fetch": "^2.7.0",
     "ws": "^8.19.0"

@@ -8,6 +8,7 @@ import {
 } from 'n8n-workflow';
 import { ServiceBusClient, ServiceBusMessage } from '@azure/service-bus';
 import fetch from 'node-fetch';
+import { createServiceBusClient } from '../GenericFunctions';
 
 interface ConnectionDetails {
 	hostname: string;
@@ -527,43 +528,30 @@ export class AzureServiceBus implements INodeType {
 		console.log('🔑 Getting credentials...');
 		const credentials = await this.getCredentials('azureServiceBusApi');
 
-		console.log('🔑 Credentials received:', {
-			hasConnectionString: !!credentials.connectionString,
-			connectionStringLength: credentials.connectionString ? String(credentials.connectionString).length : 0,
-			connectionStringPreview: credentials.connectionString ? String(credentials.connectionString).substring(0, 50) + '...' : 'EMPTY'
-		});
-
-		const connectionString = credentials.connectionString as string;
-		if (!connectionString) {
-			console.error('❌ Connection string is missing!');
-			throw new NodeOperationError(this.getNode(), 'Azure Service Bus connection string is required');
-		}
-
-		if (connectionString.includes('__n8n_BLANK_VALUE_')) {
-			console.error('❌ Found __n8n_BLANK_VALUE_ in connection string!');
-			throw new NodeOperationError(this.getNode(), 'Connection string contains blank values. Please re-enter your credentials.');
-		}
-
 		let serviceBusClient: ServiceBusClient | null = null;
 		let httpConnectionDetails: ConnectionDetails | null = null;
 
 		if (protocol === 'sdk') {
-			console.log('🔗 Creating ServiceBusClient with WebSockets transport...');
+			console.log('🔗 Creating ServiceBusClient...');
 			try {
-				const WebSocket = require('ws');
-				serviceBusClient = new ServiceBusClient(connectionString, {
-					webSocketOptions: {
-						webSocket: WebSocket,
-					},
-				});
-				console.log('✅ ServiceBusClient created with WebSockets transport');
-			} catch (wsError) {
-				console.log('⚠️ WebSockets not available, using default transport');
-				console.log('Error details:', wsError);
-				serviceBusClient = new ServiceBusClient(connectionString);
+				serviceBusClient = createServiceBusClient(credentials);
+				console.log('✅ ServiceBusClient created successfully');
+			} catch (error) {
+				throw new NodeOperationError(this.getNode(), (error as Error).message);
 			}
 		} else if (protocol === 'http') {
+			if ((credentials.authentication as string) === 'managedIdentity') {
+				throw new NodeOperationError(this.getNode(), 'HTTP protocol requires connection string authentication; use the SDK protocol with Managed Identity');
+			}
+
 			console.log('🔗 Parsing connection string for HTTP REST API...');
+			const connectionString = credentials.connectionString as string;
+			if (!connectionString) {
+				throw new NodeOperationError(this.getNode(), 'Azure Service Bus connection string is required');
+			}
+			if (connectionString.includes('__n8n_BLANK_VALUE_')) {
+				throw new NodeOperationError(this.getNode(), 'Connection string contains blank values. Please re-enter your credentials.');
+			}
 			httpConnectionDetails = parseConnectionString(connectionString);
 		}
 

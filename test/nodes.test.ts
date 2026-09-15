@@ -1,6 +1,7 @@
 import { AzureServiceBus } from '../nodes/AzureServiceBus/AzureServiceBus.node';
 import { AzureServiceBusTrigger } from '../nodes/AzureServiceBusTrigger/AzureServiceBusTrigger.node';
 import { AzureServiceBusApi } from '../credentials/AzureServiceBusApi.credentials';
+import { createServiceBusClient } from '../nodes/GenericFunctions';
 
 describe('AzureServiceBus Node', () => {
 	let node: AzureServiceBus;
@@ -205,5 +206,40 @@ describe('AzureServiceBusApi Credentials', () => {
 		it('should have generic authentication type', () => {
 			expect(credentials.authenticate.type).toBe('generic');
 		});
+
+		it('should have managedIdentity as an authentication option', () => {
+			const authProp = credentials.properties.find(p => p.name === 'authentication');
+			expect(authProp?.options).toEqual(
+				expect.arrayContaining([expect.objectContaining({ value: 'managedIdentity' })]),
+			);
+		});
+
+		it('should have fullyQualifiedNamespace property for managed identity', () => {
+			const nsProp = credentials.properties.find(p => p.name === 'fullyQualifiedNamespace');
+			expect(nsProp).toBeDefined();
+			expect(nsProp?.displayOptions?.show?.authentication).toEqual(['managedIdentity']);
+		});
+	});
+});
+
+describe('createServiceBusClient', () => {
+	it('throws when connection string authentication has no connection string', () => {
+		expect(() => createServiceBusClient({ authentication: 'connectionString' })).toThrow(
+			'Azure Service Bus connection string is required',
+		);
+	});
+
+	it('throws when managed identity authentication has no namespace', () => {
+		expect(() => createServiceBusClient({ authentication: 'managedIdentity' })).toThrow(
+			'Fully Qualified Namespace is required for Managed Identity authentication',
+		);
+	});
+
+	it('builds a client for managed identity with a fully qualified namespace', () => {
+		const client = createServiceBusClient({
+			authentication: 'managedIdentity',
+			fullyQualifiedNamespace: 'my-namespace.servicebus.windows.net',
+		});
+		expect(client.fullyQualifiedNamespace).toBe('my-namespace.servicebus.windows.net');
 	});
 });

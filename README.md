@@ -11,15 +11,22 @@ Custom n8n node for working with Azure Service Bus using the official `@azure/se
 - ✅ Support for custom properties
 - ✅ Multiple receive modes (Peek Lock, Receive and Delete)
 - ✅ Support for Azure Service Bus Connection String
+- ✅ Support for Azure Managed Identity authentication
 
 ## Configuration
 
 ### Add credentials in n8n:
 
-Connection String:
+Choose an Authentication method:
+
+**Connection String** (default):
 ```
 Endpoint=sb://xxx.servicebus.windows.net/;SharedAccessKeyName=xxx;SharedAccessKey=xxx;EntityPath=xxx
 ```
+
+**Azure Managed Identity** (SDK protocol only, not available for the HTTP protocol option):
+- Fully Qualified Namespace: `your-namespace.servicebus.windows.net`
+- Managed Identity Client ID: optional, only needed for a user-assigned identity; leave empty to use the system-assigned identity
 
 ### Using the node:
 

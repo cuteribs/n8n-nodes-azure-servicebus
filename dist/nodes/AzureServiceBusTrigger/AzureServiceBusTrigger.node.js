@@ -11,7 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AzureServiceBusTrigger = void 0;
 const n8n_workflow_1 = require("n8n-workflow");
-const service_bus_1 = require("@azure/service-bus");
+const GenericFunctions_1 = require("../GenericFunctions");
 class AzureServiceBusTrigger {
     constructor() {
         this.description = {
@@ -182,33 +182,19 @@ class AzureServiceBusTrigger {
             const sessionMode = this.getNodeParameter('sessionMode', 'none');
             console.log(`📝 Trigger parameters: resource=${resource}, sessionMode=${sessionMode}, maxConcurrentCalls=${maxConcurrentCalls}`);
             const credentials = yield this.getCredentials('azureServiceBusApi');
-            const connectionString = credentials.connectionString;
-            if (!connectionString) {
-                throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'Azure Service Bus connection string is required');
-            }
-            if (connectionString.includes('__n8n_BLANK_VALUE_')) {
-                throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'Connection string contains blank values. Please re-enter your credentials.');
-            }
-            console.log('🔗 Creating ServiceBusClient with WebSockets transport...');
-            let serviceBusClient;
+            console.log('🔗 Creating ServiceBusClient...');
             const retryOptions = {
                 maxRetries: maxRetryAttempts,
                 retryDelayInMs: 1000,
                 maxRetryDelayInMs: 30000,
             };
+            let serviceBusClient;
             try {
-                const WebSocket = require('ws');
-                serviceBusClient = new service_bus_1.ServiceBusClient(connectionString, {
-                    webSocketOptions: {
-                        webSocket: WebSocket,
-                    },
-                    retryOptions,
-                });
-                console.log('✅ ServiceBusClient created with WebSockets transport and retry options');
+                serviceBusClient = (0, GenericFunctions_1.createServiceBusClient)(credentials, { retryOptions });
+                console.log('✅ ServiceBusClient created successfully');
             }
-            catch (wsError) {
-                console.log('⚠️ WebSockets not available, using default transport');
-                serviceBusClient = new service_bus_1.ServiceBusClient(connectionString, { retryOptions });
+            catch (error) {
+                throw new n8n_workflow_1.NodeOperationError(this.getNode(), error.message);
             }
             const receivers = [];
             let entityName;

@@ -14,8 +14,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AzureServiceBus = void 0;
 const n8n_workflow_1 = require("n8n-workflow");
-const service_bus_1 = require("@azure/service-bus");
 const node_fetch_1 = __importDefault(require("node-fetch"));
+const GenericFunctions_1 = require("../GenericFunctions");
 function isEmptyMessageBody(messageBody) {
     if (messageBody === null || messageBody === undefined) {
         return true;
@@ -491,41 +491,30 @@ class AzureServiceBus {
             console.log(`📝 Parameters: resource=${resource}, operation=${operation}, protocol=${protocol}`);
             console.log('🔑 Getting credentials...');
             const credentials = yield this.getCredentials('azureServiceBusApi');
-            console.log('🔑 Credentials received:', {
-                hasConnectionString: !!credentials.connectionString,
-                connectionStringLength: credentials.connectionString ? String(credentials.connectionString).length : 0,
-                connectionStringPreview: credentials.connectionString ? String(credentials.connectionString).substring(0, 50) + '...' : 'EMPTY'
-            });
-            const connectionString = credentials.connectionString;
-            if (!connectionString) {
-                console.error('❌ Connection string is missing!');
-                throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'Azure Service Bus connection string is required');
-            }
-            if (connectionString.includes('__n8n_BLANK_VALUE_')) {
-                console.error('❌ Found __n8n_BLANK_VALUE_ in connection string!');
-                throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'Connection string contains blank values. Please re-enter your credentials.');
-            }
             let serviceBusClient = null;
             let httpConnectionDetails = null;
             if (protocol === 'sdk') {
-                console.log('🔗 Creating ServiceBusClient with WebSockets transport...');
+                console.log('🔗 Creating ServiceBusClient...');
                 try {
-                    const WebSocket = require('ws');
-                    serviceBusClient = new service_bus_1.ServiceBusClient(connectionString, {
-                        webSocketOptions: {
-                            webSocket: WebSocket,
-                        },
-                    });
-                    console.log('✅ ServiceBusClient created with WebSockets transport');
+                    serviceBusClient = (0, GenericFunctions_1.createServiceBusClient)(credentials);
+                    console.log('✅ ServiceBusClient created successfully');
                 }
-                catch (wsError) {
-                    console.log('⚠️ WebSockets not available, using default transport');
-                    console.log('Error details:', wsError);
-                    serviceBusClient = new service_bus_1.ServiceBusClient(connectionString);
+                catch (error) {
+                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), error.message);
                 }
             }
             else if (protocol === 'http') {
+                if (credentials.authentication === 'managedIdentity') {
+                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'HTTP protocol requires connection string authentication; use the SDK protocol with Managed Identity');
+                }
                 console.log('🔗 Parsing connection string for HTTP REST API...');
+                const connectionString = credentials.connectionString;
+                if (!connectionString) {
+                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'Azure Service Bus connection string is required');
+                }
+                if (connectionString.includes('__n8n_BLANK_VALUE_')) {
+                    throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'Connection string contains blank values. Please re-enter your credentials.');
+                }
                 httpConnectionDetails = parseConnectionString(connectionString);
             }
             try {

@@ -14,6 +14,7 @@ import {
 	ServiceBusSessionReceiver,
 	ProcessErrorArgs,
 } from '@azure/service-bus';
+import { createServiceBusClient } from '../GenericFunctions';
 
 interface SessionReceiverManager {
 	queueName?: string;
@@ -195,37 +196,21 @@ export class AzureServiceBusTrigger implements INodeType {
 		console.log(`📝 Trigger parameters: resource=${resource}, sessionMode=${sessionMode}, maxConcurrentCalls=${maxConcurrentCalls}`);
 
 		const credentials = await this.getCredentials('azureServiceBusApi');
-		const connectionString = credentials.connectionString as string;
 
-		if (!connectionString) {
-			throw new NodeOperationError(this.getNode(), 'Azure Service Bus connection string is required');
-		}
+		console.log('🔗 Creating ServiceBusClient...');
 
-		if (connectionString.includes('__n8n_BLANK_VALUE_')) {
-			throw new NodeOperationError(this.getNode(), 'Connection string contains blank values. Please re-enter your credentials.');
-		}
-
-		console.log('🔗 Creating ServiceBusClient with WebSockets transport...');
-
-		let serviceBusClient: ServiceBusClient;
 		const retryOptions = {
 			maxRetries: maxRetryAttempts,
 			retryDelayInMs: 1000,
 			maxRetryDelayInMs: 30000,
 		};
 
+		let serviceBusClient: ServiceBusClient;
 		try {
-			const WebSocket = require('ws');
-			serviceBusClient = new ServiceBusClient(connectionString, {
-				webSocketOptions: {
-					webSocket: WebSocket,
-				},
-				retryOptions,
-			});
-			console.log('✅ ServiceBusClient created with WebSockets transport and retry options');
-		} catch (wsError) {
-			console.log('⚠️ WebSockets not available, using default transport');
-			serviceBusClient = new ServiceBusClient(connectionString, { retryOptions });
+			serviceBusClient = createServiceBusClient(credentials, { retryOptions });
+			console.log('✅ ServiceBusClient created successfully');
+		} catch (error) {
+			throw new NodeOperationError(this.getNode(), (error as Error).message);
 		}
 
 		const receivers: ServiceBusReceiver[] = [];
